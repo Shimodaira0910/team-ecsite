@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+
+<link href="/css/reset.css" th:href="@{/css/reset.css}" rel="stylesheet" />
+<link href="/css/style.css" th:href="@{/css/style.css}" rel="stylesheet" />
+
+
+<title>マイラーメン～私が選ぶ、私だけのラーメン～</title>
+</head>
+<body>
+
+<header th:insert="fragments/page_header::pageHeader"></header>
+
+<main>
+
+	<div class="container cart">
+		<h2>カート</h2>
+		<div class="noData" th:if="${cartList == null || cartList.size() == 0}">
+			<p class="info">カート情報はありません。</p>
+		</div>
+		
+		<table class="cart" th:if="${cartList != null && cartList.size() > 0}">
+			<tr>
+				<th>選択</th><th>画像</th><th>商品名</th><th>価格（円）</th><th>個数</th><th>小計（円）</th>
+			</tr>
+			<tr th:each="cartList: ${cartList}">
+				<td><input type="checkbox" name="id" class="checkList" th:value="${cartList.cartId}" /></td>
+				<td><img class="itemImage" th:src="${cartList.imageFullPath}" /></td>
+				<td th:text="${cartList.productName}" />
+				<td class="number" th:text="${cartList.price}" />
+				<td class="productCount number" th:text="${cartList.productCount}" />
+				<td class="subtotal number" th:text="${cartList.subtotal}" />
+			</tr>
+			<tr>
+				<td class="totalArea"></td>
+				<td class="totalArea"></td>
+				<td class="totalArea">合計（円）</td>
+				<td class="totalArea"></td>
+				<td class="totalArea" id = "totalCount"></td>
+				<td class="totalArea" id = "totalPrice"></td>
+			</tr>
+			</table>
+		
+		<div class="buttonArea" th:if="${cartList != null && cartList.size() > 0}">
+			<button id="deleteButton" disabled>削除</button>
+				<form action="/brown/settlement/">
+					<button type="submit" id="settlementButton">購入</button>
+				</form>
+		</div>
+	</div>
+
+</main>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+
+	$(() => {
+		//購入個数と金額の合計を計算、合計欄に設定する
+		calcTotalArea();
+	
+		//削除ボタンが押下された際の表示設定
+		$('#deleteButton').on('click', () => {
+			let checkedList = $('.checkList:checked'); //チェックされたチェックボックスのオブジェクト
+			let checkedIdList = []; //チェックされたチェックボックスのvalueを格納
+			
+			for(checked of checkedList){
+				checkedIdList.push($(checked).val());
+			}	
+			deleteCart(checkedList, checkedIdList);	
+		});
+	
+		//チェックボックスに入力選択の可能・不可能の切り替え
+		$('.checkList').on('change',changeDisable);
+	
+		//購入ボタンが未ログイン時に押下されたときの処理
+		$('#settlementButton').on('click', function(){
+				let id = /*[[${loginSession.getId()}]]*/ 0;
+				if(id == 0 && isEmpty($('#hiddenUserName').val())){
+					alert("ログインしてください。");
+					return false;
+			}
+		});
+	});
+
+	//合計金額、個数を計算 calcTotalArea()の中身を記述
+	let calcTotalArea = () => {
+		let subtotalList = $('.subtotal');
+		let countList = $('.productCount');
+		let totalPrice = 0;
+		let totalCount = 0;
+		
+		$(subtotalList).each((i, subtotal) => {
+			totalPrice += parseInt($(subtotal).text());
+			totalCount += parseInt($(countList[i]).text());
+		});
+		
+		$('#totalPrice').text(totalPrice);
+		$('#totalCount').text(totalCount);
+	}
+
+	//選択されたカート情報を削除
+	let deleteCart = (checkedList, checkedIdList) => {
+		$.ajax({
+			type: 'POST',
+			url:  '/brown/cart/delete',
+			data: JSON.stringify({'checkedIdList': checkedIdList}),
+			contentType: 'application/json',
+	})
+	.then((result) => {
+		for (checked of checkedList){
+			$(checked).parent().parent().remove();
+		}
+		
+		let checkList = $('.checkList');
+			if(checkList.length == 0){
+				location.replace('/brown/cart/');
+			}
+			calcTotalArea();
+			changeDisable();
+		}, () => {
+			alert('Error: ajax connection failed.');
+		});
+	}
+
+	//削除ボタン活性・非活性の変更
+	let changeDisable = (event) => {
+		let checkList = $('.checkList');
+		let disabled = true;
+		for (let check of checkList) {
+			if($(check).prop('checked')){
+				disabled = false;
+				break;
+			}
+		}
+		$("#deleteButton").prop("disabled",disabled);
+	}
+
+</script>
+
+</body>
+</html>
